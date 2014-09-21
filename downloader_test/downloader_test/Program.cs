@@ -1,9 +1,12 @@
 ﻿using System;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Net;
 using System.Net.Sockets;
 using System.Collections.Generic;
 using System.Collections;
+using System.IO;
+using System.Diagnostics;
 
 namespace downloader_test
 {
@@ -11,15 +14,24 @@ namespace downloader_test
 	{
 		public static void Main (string[] args)
 		{
-			IPAddress ipAddress = Dns.Resolve("www.te.com").AddressList[0];
-			IPEndPoint ipe = new IPEndPoint (ipAddress, 80);
             string referer = "http://www.digikey.com/product-detail/en/207333-1/A25080-ND/307477";
-            string link = " /commerce/DocumentDelivery/DDEController?Action=srchrtrv&DocNm=207333&DocType=Customer+Drawing&DocLang=English";
-            string host = "www.te.com";
-			string a = SocketSendReceive ("GET", ipe, referer, link, host);
+            //string link = " /commerce/DocumentDelivery/DDEController?Action=srchrtrv&DocNm=207333&DocType=Customer+Drawing&DocLang=English";
+            //string host = "www.te.com";
+
+            string link = "/specifications/ACC02.pdf";
+            string host = "www.mallory-sonalert.com";
+            
+            IPAddress ipAddress = Dns.Resolve(host).AddressList[0];
+            IPEndPoint ipe = new IPEndPoint(ipAddress, 80);
+
+            string a = SocketSendReceive ("GET", ipe, referer, link, host);
+            
+            
 		}
 		private static string SocketSendReceive(string type,IPEndPoint ipe, string referer, string link, string host) 
 		{
+            
+
 			StringBuilder request = new StringBuilder ();
             request.Append(type); //HEAD _ GET
             request.Append (" " + link);
@@ -53,12 +65,27 @@ namespace downloader_test
                 page = page + ipe.Address.ToString() + ":\r\n";
 
                 // The following will block until te page is transmitted.
+                FileStream outf = null;
+                int fc = 0;
                 do
                 {
+                    
                     bytes = s.Receive(bytesReceived, bytesReceived.Length, 0);
                     page = page + Encoding.ASCII.GetString(bytesReceived, 0, bytes);
+                    if (page.Contains("filename=") & fc == 0)
+                    {
+                        Regex fname = new Regex(@"filename=(.*\.(.*\w))");
+                        Match filename = fname.Match(page);
+                        outf = File.Create("../" + filename.Groups[1].Value);
+                        fc = 1;
+                    }
+                    if(fc == 1)
+                    {
+                        outf.Write(bytesReceived, 0, bytes);
+                    }
                 }
                 while (bytes > 0);
+                outf.Close();
             }
 
 			return page;
